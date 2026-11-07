@@ -131,7 +131,7 @@ class WebStore:
                 return False
             db.execute(
                 """INSERT INTO limits VALUES (?, 1, ?)
-                ON CONFLICT(bucket) DO UPDATE SET count=count+1""",
+                ON CONFLICT(bucket) DO UPDATE SET count=limits.count+1""",
                 (bucket, (int(now // seconds) + 1) * seconds),
             )
         return True
