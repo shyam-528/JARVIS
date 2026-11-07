@@ -1,0 +1,48 @@
+.env
+**/.env
+.venv/
+__pycache__/
+*.pyc
+data/
+*.db
+.coverage
+.pytest_cache/
+# P0: never commit runtime/secrets/clutter
+logs/
+*.log
+screenshot*.png
+*.bak*
+_ub*.txt
+_wst*.txt
+_c_*.txt
+_cli_test.txt
+_api_*.txt
+_jarvis_*.txt
+_tg_*.txt
+_api_pid.txt
+_jarvis_pid.txt
+node_modules/
+wa-bridge/node_modules/
+wa-bridge/auth/
+**/wa-bridge/auth/
+# NOTE (resolved 2026-09-26, owner call): wa-bridge/wa-bridge/auth/*.json
+# session creds were TRACKED — removed from tracking via `git rm --cached`;
+# files stay on disk, history keeps them (purge with filter-repo only if asked).
+wa-bridge/wa-bridge/auth/
+**/wa-bridge/auth/
+# NOTE: wa-bridge/wa-bridge/auth/*.json (session creds) is TRACKED in git and
+# NOT covered by the rules above — needs `git rm --cached` (ask owner first).
+mark4dash/__pycache__/
+todo_app/__pycache__/
+# T5 (ROADMAP P0): scratch + personal root files — clutter, not code.
+# Personal/prompt-output files stay on disk, never committed.
+_toolnames.txt
+chaining_*.txt
+orch_*.txt
+stark_*.txt
+*_out.txt
+*_err.txt
+jarvis_upgrade_recommendations.md
+# archive/ holds retired snapshots: history keeps them, the checkout keeps
+# working copies, but nothing new is ever tracked here (unwired P1 2026-09-25).
+archive/

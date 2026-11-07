@@ -1,0 +1,12 @@
+# JARVIS MARK 3 — voice tier (ROADMAP P2 req split).
+# Push-to-talk, wake word, neural TTS, mic VAD. All imported lazily
+# (function-level try/except with spoken/text fallbacks), so core boots
+# and chats without any of these installed.
+# Install: .venv\Scripts\python.exe -m pip install -r requirements.voice.txt
+sounddevice
+faster-whisper
+edge-tts
+kokoro-onnx
+miniaudio
+openwakeword
+webrtcvad

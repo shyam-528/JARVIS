@@ -1,0 +1,6 @@
+{
+  "root": "C:\\Users\\krith\\mark3",
+  "type": "python",
+  "test_cmd": "pytest -q",
+  "default_branch": "main"
+}

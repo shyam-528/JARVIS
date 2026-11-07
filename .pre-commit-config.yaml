@@ -1,0 +1,32 @@
+# Pre-commit gate (ROADMAP §7 quick win, widened by P1/T1 2026-09-25).
+# Install with:
+#   .venv\Scripts\python.exe -m pre_commit install
+#
+# The lint gate is now FULL ruff check + format check: the T1 burn-down took
+# the tree from ~1,049 findings to zero, so the narrow subset gate
+# (E9,F601,F821,F402,F811) is retired. Per-file E402 ignores for the three
+# bootstrap entry points live in pyproject.toml; two SIM115 lifetime-handles
+# in core/supervisor.py carry inline noqa. Any new finding fails the commit.
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-gate
+        name: ruff gate (full check, zero tolerance)
+        entry: .venv\\Scripts\\python.exe -m ruff check .
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: ruff-format
+        name: ruff format check
+        entry: .venv\\Scripts\\python.exe -m ruff format --check .
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: pytest-smoke
+        name: pytest smoke (boot, supervisor, router)
+        entry: .venv\\Scripts\\python.exe -m pytest tests/test_boot.py tests/test_supervisor.py tests/test_router.py -q -p no:cacheprovider
+        language: system
+        pass_filenames: false
+        always_run: true

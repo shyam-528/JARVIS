@@ -1,0 +1,49 @@
+{
+  "name": "JARVIS MARK 3",
+  "short_name": "JARVIS",
+  "description": "Personal AI Assistant with Voice, Vision, and Automation",
+  "start_url": "/app",
+  "display": "standalone",
+  "background_color": "#0a0a0c",
+  "theme_color": "#6366f1",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "shortcuts": [
+    {
+      "name": "Voice Mode",
+      "short_name": "Voice",
+      "description": "Start voice conversation",
+      "url": "/app#voice",
+      "icons": [{ "src": "/static/icons/mic-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Vision",
+      "short_name": "Vision",
+      "description": "Screen analysis and OCR",
+      "url": "/app#vision",
+      "icons": [{ "src": "/static/icons/eye-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Briefing",
+      "short_name": "Briefing",
+      "description": "Daily briefing",
+      "url": "/app#briefing",
+      "icons": [{ "src": "/static/icons/briefing-96.png", "sizes": "96x96" }]
+    }
+  ]
+}

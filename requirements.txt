@@ -1,0 +1,11 @@
+# Runtime requirements (loose floors on purpose for development).
+# Tiered split (ROADMAP P2): core (boot <10s) + voice + ml. This file stays
+# the full set so existing installs and CI keep working unchanged.
+# For a reproducible install use requirements.lock — exact pins of the
+# known-good, fully tested environment (see its header for why it's
+# freeze-based rather than pip-compiled).
+-r requirements.core.txt
+-r requirements.voice.txt
+-r requirements.ml.txt
+pytest>=8.0
+pytest-asyncio>=0.23

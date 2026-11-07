@@ -1,0 +1,28 @@
+{
+  "weather_plugin": {
+    "manifest": {
+      "name": "weather",
+      "version": "1.0.0",
+      "description": "Get current weather and forecasts for any location using Open-Meteo API",
+      "author": "JARVIS Team",
+      "license": "MIT",
+      "entry_point": "register",
+      "dependencies": [
+        "requests"
+      ],
+      "jarvis_min_version": "1.0.0",
+      "tags": [
+        "weather",
+        "api",
+        "forecast"
+      ],
+      "homepage": "https://github.com/jarvis-skills/weather",
+      "repository": "https://github.com/jarvis-skills/weather",
+      "created_at": "2026-08-24T01:56:11.382759",
+      "updated_at": "2026-08-24T01:56:11.382759"
+    },
+    "install_path": "C:\\Users\\krith\\mark3\\plugins\\weather_plugin",
+    "installed_at": "2026-08-24T01:56:11.383758",
+    "source": "local"
+  }
+}

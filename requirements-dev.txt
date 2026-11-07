@@ -1,0 +1,6 @@
+# Dev-only tooling — never needed at runtime. Install:
+#   .venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+#   .venv\Scripts\python.exe -m pre_commit install
+ruff==0.16.8
+pre-commit==4.6.2
+pytest-cov==7.1.0

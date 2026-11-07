@@ -1,0 +1,35 @@
+name: Public web app
+
+on:
+  push:
+    paths:
+      - 'api/public*.py'
+      - 'web/public/**'
+      - 'tests/test_public_web.py'
+      - 'requirements.web.txt'
+      - '.github/workflows/public-web.yml'
+  pull_request:
+    paths:
+      - 'api/public*.py'
+      - 'web/public/**'
+      - 'tests/test_public_web.py'
+      - 'requirements.web.txt'
+      - '.github/workflows/public-web.yml'
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements.web.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -r requirements.web.txt
+      - run: python -m unittest tests.test_public_web -v
+      - run: node --check web/public/app.js

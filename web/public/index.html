@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f8f7f4">
+  <meta name="description" content="JARVIS — a little clarity for your next big idea. Your personal AI workspace.">
+  <title>JARVIS · Your thinking space</title>
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/app.css">
+  <script src="/assets/app.js" defer></script>
+</head>
+<body>
+  <div id="boot" role="status"><span class="brand-mark">j.</span><p>Opening your workspace…</p></div>
+  <main id="auth" class="auth-shell" hidden>
+    <section class="auth-story" aria-label="Welcome to JARVIS">
+      <a class="brand" href="/"><span class="brand-mark">j.</span> JARVIS <span class="brand-tag">WEB</span></a>
+      <div class="story-copy"><span class="eyebrow">A LITTLE SPACE TO THINK BIG</span><h1>Your ideas.<br>A little more<br><em>possibility.</em></h1><p>Meet your everyday thinking partner. Untangle a question, find the right words, or take the first step on something new.</p></div>
+      <div class="story-bottom"><span class="spark">✳</span><span>Less blank page.<br>More “let’s try this.”</span></div>
+    </section>
+    <section class="auth-form-section">
+      <span class="top-note">YOUR PERSONAL AI WORKSPACE</span>
+      <div class="auth-card">
+        <div class="auth-tabs" role="group" aria-label="Account access"><button id="login-tab" class="selected" type="button">Sign in</button><button id="signup-tab" type="button">Create account</button></div>
+        <h2 id="auth-title">Good to see you.</h2><p id="auth-subtitle" class="muted">Sign in and pick up where you left off.</p>
+        <form id="auth-form">
+          <label id="name-field" hidden>Your name<input id="name" name="name" autocomplete="name" maxlength="60" placeholder="What should we call you?"></label>
+          <label>Email address<input id="email" name="email" type="email" autocomplete="email" maxlength="254" placeholder="you@example.com" required></label>
+          <label>Password<input id="password" name="password" type="password" autocomplete="current-password" maxlength="128" placeholder="Your password" required></label>
+          <p id="password-help" class="field-help" hidden>Use at least 12 characters. A memorable passphrase works well.</p>
+          <p id="auth-error" class="error" role="alert" hidden></p>
+          <button id="auth-submit" class="primary" type="submit">Sign in <span aria-hidden="true">↗</span></button>
+        </form>
+        <div class="privacy-note"><span aria-hidden="true">◈</span><p>Your history belongs to your account.<br>Messages are sent to the site's AI provider to generate replies.</p></div>
+      </div>
+      <footer>Made for curious minds. Powered by AI.</footer>
+    </section>
+  </main>
+
+  <div id="workspace" class="workspace" hidden>
+    <button id="sidebar-shade" class="sidebar-shade" aria-label="Close navigation" hidden></button>
+    <aside id="sidebar" class="sidebar" aria-label="Chat navigation">
+      <div class="sidebar-brand"><a class="brand" href="/"><span class="brand-mark">j.</span> JARVIS</a><span class="brand-tag">WEB</span></div>
+      <button id="new-chat" class="new-chat"><span aria-hidden="true">＋</span> New conversation <span class="new-arrow" aria-hidden="true">↗</span></button>
+      <label class="search-wrap"><span class="sr-only">Search conversations</span><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Find a conversation" autocomplete="off"></label>
+      <div class="section-caption">YOUR CONVERSATIONS <span id="chat-count">0</span></div>
+      <nav id="conversation-list" aria-label="Conversations"></nav>
+      <div class="sidebar-footer">
+        <div class="usage-card"><div><span>Daily messages</span><b id="usage-text">—</b></div><progress id="usage-bar" value="0" max="100" aria-label="Daily message usage"></progress><small>Resets at midnight UTC</small></div>
+        <div class="account-row"><span id="avatar" class="avatar">J</span><div><b id="account-name"></b><small id="account-email"></small></div><button id="logout" class="icon-button" title="Sign out" aria-label="Sign out">↪</button></div>
+      </div>
+    </aside>
+    <main class="chat-main">
+      <header class="chat-header"><div class="header-left"><button id="menu" class="icon-button mobile-only" aria-label="Open navigation" aria-expanded="false">☰</button><span class="workspace-label">Personal workspace</span><span class="header-slash">/</span><b id="chat-title">New conversation</b></div><span id="ai-status" class="status"><i></i> AI assistant</span></header>
+      <div id="configuration-notice" class="notice" hidden>The AI connection is not configured yet. You can create your account; chat will be available once the administrator connects a provider.</div>
+      <section id="chat-scroll" class="chat-scroll" aria-label="Conversation">
+        <div id="welcome" class="welcome">
+          <div class="welcome-symbol" aria-hidden="true">✳</div>
+          <p class="eyebrow">A FRESH PAGE. A NEW POSSIBILITY.</p>
+          <h1>What’s on your mind<span>?</span></h1>
+          <p class="welcome-description">A question, a half-formed idea, a thing you’ve been putting off. <br>Let’s make something of it.</p>
+          <div class="suggestions">
+            <button data-prompt="Help me brainstorm a small project I can build this weekend. Ask me about my interests first."><span class="suggestion-icon">✧</span><b>Find a fresh idea</b><span>Make room for something new</span><i>↗</i></button>
+            <button data-prompt="Help me write a clear, thoughtful email. Ask me who it is for and what I want to say."><span class="suggestion-icon">✎</span><b>Find the right words</b><span>Turn a rough thought into a draft</span><i>↗</i></button>
+            <button data-prompt="I want to understand a difficult concept. Ask me what I am learning, then explain it step by step."><span class="suggestion-icon">◎</span><b>Make it make sense</b><span>Break down the complicated bits</span><i>↗</i></button>
+            <button data-prompt="Help me make a realistic plan for my week. Ask me about my priorities and available time."><span class="suggestion-icon">▤</span><b>Make a little progress</b><span>Give your next step some shape</span><i>↗</i></button>
+          </div>
+        </div>
+        <div id="messages" class="messages" role="log" aria-label="Chat messages" aria-live="polite"></div>
+      </section>
+      <div class="composer-area">
+        <div id="chat-error" class="error chat-error" role="alert" hidden></div>
+        <form id="composer" class="composer"><label class="sr-only" for="message">Message JARVIS</label><textarea id="message" rows="1" maxlength="8000" placeholder="Ask anything. Start somewhere."></textarea><div class="composer-bottom"><span>JARVIS <span class="composer-dot">·</span> Your thinking partner</span><button id="send" type="submit" aria-label="Send message">↑</button></div></form>
+        <p class="composer-note">AI can make mistakes. Check important details. <span>Shift + Enter for a new line</span></p>
+      </div>
+    </main>
+  </div>
+  <dialog id="delete-dialog" aria-labelledby="delete-conversation-title" aria-describedby="delete-conversation-description">
+    <span class="eyebrow">A LITTLE HOUSEKEEPING</span>
+    <h2 id="delete-conversation-title">Delete this conversation?</h2>
+    <p id="delete-conversation-description">This permanently removes the conversation and its messages from your account.</p>
+    <p id="delete-conversation-error" class="error" role="alert" hidden></p>
+    <div class="dialog-actions">
+      <button id="delete-conversation-cancel" type="button" class="secondary" autofocus>Keep it</button>
+      <button id="delete-conversation-submit" type="button" class="danger">Delete conversation</button>
+    </div>
+  </dialog>
+</body>
+</html>

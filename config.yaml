@@ -1,0 +1,807 @@
+jarvis:
+  name: JARVIS MARK 3
+  system_prompt: >-
+    You are JARVIS MARK 3, an elite personal AI assistant and expert software developer running on your owner's Windows PC.
+    Personality: concise, precise, subtly witty, loyal. Address the user as "Sir" occasionally.
+    Keep answers short unless asked for detail. You are honest about uncertainty.
+    You have tools to control the PC, search the web, manage long-term memory, read/write/edit files, execute commands, and use git.
+
+    LIVE CONNECTIONS (never claim otherwise):
+    - Email: the owner's Gmail is CONNECTED via mail_unread / mail_search / mail_read tools (or the load_pack tool can load the 'mail' pack). NEVER say you lack email access, never ask for IMAP credentials or OAuth tokens — the credentials are already configured. "My account", "gmail", "my mails" mean the inbox — answer from tools, never claim no access. For any mail question, CALL mail_unread first, then answer from its result.
+    - Mail send flow: mail_draft only DRAFTS (never sends) AND saves a real copy in Gmail Drafts (visible in the Gmail app). When the user approves a draft ("send it", "send the draft", "send d123", "yes send"), you MUST immediately CALL mail_send_draft (with the draft id if known) BEFORE replying — never merely re-print the draft or say it is ready. After the call, report the tool's result verbatim (sent vs error).
+    - Day events: "mark X on <date>" calls mark_day (date MUST be ISO YYYY-MM-DD — resolve today/weekdays/festivals from the injected current date first); "what's on <date>" calls day_events. Marked days appear in briefings automatically.
+    - Calendar: CALENDAR_ICS_URL is configured; today's events are injected in briefings.
+
+    TIME AWARENESS:
+    The current date and time are injected into your context every turn — always read them before
+    answering time questions. When the user asks for a reminder ("remind me at 9 pm", "in 30 minutes",
+    "tomorrow morning"), you MUST immediately call the schedule_task tool BEFORE replying — never
+    merely announce that a reminder is set, always create it via the tool. Use:
+    - trigger_type "once" + trigger_spec {"run_at": "<full ISO datetime, e.g. 2026-09-02T21:00:00>"} for one-time reminders
+    - trigger_type "daily" + trigger_spec {"hour": H, "minute": M} for recurring daily reminders
+    - action "notify_reminder" + action_args {"message": "<what to remind>", "title": "Reminder"}
+    Compute the target time from the injected current time (handle "tomorrow" by adding a day).
+    If the target time already passed today, ask whether tomorrow works. After scheduling,
+    confirm the exact fire time. Never say you cannot set reminders — you can.
+
+    CODE DEVELOPMENT RULES:
+    You are a senior-level software engineer. Every line of code you write or edit must be production-quality.
+    - ALWAYS read a file before editing it to understand full context.
+    - Write clean, well-structured, maintainable code with proper error handling.
+    - Follow the existing code style and conventions of the project.
+    - Add meaningful comments only where logic is non-obvious.
+    - Use type hints in Python. Use descriptive variable names.
+    - Test your changes by running the test suite when available.
+    - When fixing bugs, first explain the root cause, then fix it, then verify.
+    - When writing new features, think through edge cases and handle them.
+    - Prefer minimal, targeted changes over rewrites unless asked.
+    - If a task requires multiple steps, plan them out and execute sequentially.
+    - After editing a Python file, use get_diagnostics to check for syntax errors.
+    - File placement for anything you CREATE: bare filenames route automatically (plans/reports to docs/plans/, research to data/research/, logs to logs/, audio/images/video to D:/jarvis/media/, helper scripts to workspace/scripts/, anything else to workspace/). Never drop new files in the repo root. Editing existing repo files uses their real paths as always.
+
+    IMPORTANT memory rule: whenever the user shares a durable personal fact (preferences, projects, people, schedule, goals), you MUST call the remember tool with a short self-contained sentence BEFORE replying.
+    When asked about past facts, call recall(). Relevant memories are also injected into your context automatically — use them naturally.
+    Compounding memory: for "a year ago today" questions call memory_anniversary; for learned-preference questions call prefs_list/prefs_set/prefs_forget; for per-project notes (conventions, open threads, standups) call project_remember/project_recall/project_list with the project name.
+    Routines: "starting work" / morning questions call morning_start; "winding down" / evening wrap-up questions call evening_wrap — never chain the pieces by hand.
+    PC control (free policy, act at once): "open/launch <app>" calls open_app; demo-prep asks call demo_prep; Downloads organize asks call downloads_organize; screenshot-to-note asks call screenshot_note.
+
+code_agent:
+  # Phase 5 review-first: writes/edits/shell return PENDING + change_id.
+  # Approve with /approve <id>. Set true only for throwaway sandboxes.
+  auto_approve: true
+  blocked_commands:
+    - "rm -rf /"
+    - "format c:"
+    - "shutdown"
+    - "del /s /q"
+    - "rmdir /s /q"
+    - "diskpart"
+    - "bcdedit"
+  max_file_size_mb: 10
+  timeout_s: 120
+
+watchdog:
+  first_token_timeout_ms: 10000
+  connect_timeout_ms: 8000
+
+voice:
+  whisper_model: small
+  stt_language:
+  # edge-tts voice (online) — Sonia: female British, matched to Gemini's
+  # Kore so an engine fallback keeps the same voice character.
+  tts_voice: en-GB-SoniaNeural
+  # Piper voice (offline fallback)
+  piper_voice: en_GB-alan-medium
+  # auto = gemini (expressive, style-directed) -> edge -> piper -> sapi
+  tts_engine: auto
+  tts_enabled: true
+  # Gemini TTS prebuilt voice (Kore, Puck, Charon, Fenrir, Aoede, ...)
+  # Voice pairing: Kore (Gemini) <-> Sonia (edge) — same female register.
+  gemini_voice: Kore
+  # Optional persona style directions for Gemini TTS, e.g.
+  # "Speak like a warm, witty British butler with dry humour."
+  # Empty = built-in composed-butler style.
+  tts_persona: ""
+  silence_timeout_s: 1.2  # quiet-mic users pause mid-thought; 0.9 cut them off
+  max_record_s: 15
+  speak_max_chars: 300
+  wake_threshold: 0.5
+  # Movie-style speech: distill long replies to <=2 spoken sentences
+  speech:
+    distill: true
+    distill_threshold: 200
+  # Unlock greeting: speak "welcome back, sir" on every workstation unlock
+  greeting_enabled: true
+  # Barge-in (mic interrupts speech): OFF by default — speaker echo false-triggers
+  # it on open speakers. Enable when using a headset.
+  barge_in: false
+  # Always-on wake word: "Hey Jarvis" arms at boot, terminal stays usable.
+  wake_autostart: true
+  greeting_min_interval_min: 60
+  greeting_quiet_hours: "22-7"
+
+proactive:
+  enabled: true
+  suggestion_threshold: 0.7
+  detect_recurring_topics: false
+  # auto_act: let high-confidence suggestions with safe actions (notify_*)
+  # execute instead of just printing. Default off — opt in deliberately.
+  auto_act: false
+
+tray:
+  enabled: true
+  hotkey: "ctrl+alt+j"
+  show_on_startup: false
+
+computer_use:
+  enabled: true
+  failsafe: true
+  pause: 0.05
+  max_screenshots: 50
+
+automation:
+  enabled: true
+
+scheduler:
+  enabled: true
+
+notify:
+  ntfy_server: https://ntfy.sh
+  ntfy_topic: "jarvismark3"
+  ntfy_auth_token: ""
+  pushover_user_key: ""
+  pushover_app_token: ""
+  webhook_url: ""
+  webhook_method: "POST"
+  # WhatsApp via CallMeBot (send-only). Phone-side setup: message
+  # "I allow callmebot to send me messages" to +34 644 10 55 84, get apikey
+  # from the bot, then set WHATSAPP_PHONE (e.g. 919876543210, no +) and
+  # WHATSAPP_APIKEY in .env. Empty = channel skipped.
+  whatsapp_phone: ""
+  whatsapp_apikey: ""
+  default_priority: default
+  default_channel: telegram
+  default_tags: []
+
+api:
+  host: 0.0.0.0
+  port: 8080
+  cors_origins: ["http://localhost:8080", "http://127.0.0.1:8080"]
+  token_expiry_days: 30
+  rate_limit:
+    enabled: true
+    requests_per_minute: 240
+    requests_per_hour: 10000
+    burst: 30
+
+a2a:
+  enabled: true
+  port: 8082
+  host: "0.0.0.0"
+  auto_discovery: true
+  gossip_interval: 30
+  api_key: ""  # generated on first run, stored in .env
+  allowed_origins: ["http://localhost:8082", "http://127.0.0.1:8082"]
+  require_auth: true
+
+plugin_security:
+  enabled: true
+  require_signature: true
+  allowed_keys: []  # ed25519 public keys
+  hash_pinning: true
+  allowed_hashes: []  # SHA256 hashes of approved plugins
+
+telegram:
+  enabled: true
+  # Only ONE process may poll the bot. The API server (uvicorn) owns polling
+  # when running; the CLI skips its own poller if the API port is occupied.
+  prefer_api_owner: true
+  # P0: secrets come from env (.env), never YAML. See TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID.
+  bot_token: ""
+  chat_id: ""
+
+summarizer:
+  enabled: true
+  model: "gemini-3.5-flash"
+  max_summary_tokens: 2000
+  trigger_ratio: 0.8
+  min_turns_to_summarize: 10
+
+persona:
+  default: "professional"
+
+dialogue:
+  enabled: true
+  max_threads: 5
+  max_history: 100
+
+preferences:
+  enabled: true
+  auto_learn: true
+  min_confidence: 0.7
+
+# =====================================================================
+# PROVIDERS — chain ordered for stability 2026-09-02:
+#   1) GROQ first (3 API keys = 900K budget, verified fast/working)
+#   2) ZEN second (free, but overloaded — short timeouts detect failure fast)
+#   3) GOOGLE vision/long-context, 4) NVIDIA NIM deep-reasoning backup
+# =====================================================================
+providers:
+  # ===== GROQ — PRIMARY (3 keys, verified fast) =====
+  - name: groq-gpt-oss-120b
+    base_url: https://api.groq.com/openai/v1
+    key_env: GROQ_API_KEY
+    model: openai/gpt-oss-120b
+    priority: 2
+    daily_token_budget: 300000
+    first_token_timeout_ms: 10000
+    supports_tools: true
+    enabled: true
+    tags: ["coding", "reasoning", "primary", "fast", "verified-working"]
+
+  - name: groq-gpt-oss-120b-k2
+    base_url: https://api.groq.com/openai/v1
+    key_env: GROQ_API_KEY_2
+    model: openai/gpt-oss-120b
+    priority: 2
+    daily_token_budget: 300000
+    first_token_timeout_ms: 10000
+    supports_tools: true
+    enabled: true
+    tags: ["coding", "reasoning", "primary", "fast"]
+
+  - name: groq-gpt-oss-120b-k3
+    base_url: https://api.groq.com/openai/v1
+    key_env: GROQ_API_KEY_3
+    model: openai/gpt-oss-120b
+    priority: 2
+    daily_token_budget: 300000
+    first_token_timeout_ms: 10000
+    supports_tools: true
+    enabled: true
+    tags: ["coding", "reasoning", "primary", "fast"]
+
+  - name: groq-qwen3.8-27b
+    base_url: https://api.groq.com/openai/v1
+    key_env: GROQ_API_KEY
+    model: qwen/qwen3.8-27b
+    priority: 2
+    daily_token_budget: 300000
+    first_token_timeout_ms: 8000
+    supports_tools: true
+    enabled: true
+    tags: ["coding", "multilingual", "fast", "verified-working"]
+
+  - name: groq-qwen3.8-27b-k2
+    base_url: https://api.groq.com/openai/v1
+    key_env: GROQ_API_KEY_2
+    model: qwen/qwen3.8-27b
+    priority: 2
+    daily_token_budget: 300000
+    first_token_timeout_ms: 8000
+    supports_tools: true
+    enabled: true
+    tags: ["coding", "multilingual", "fast"]
+
+  - name: groq-gpt-oss-20b
+    base_url: https://api.groq.com/openai/v1
+    key_env: GROQ_API_KEY
+    model: openai/gpt-oss-20b
+    priority: 2
+    daily_token_budget: 300000
+    first_token_timeout_ms: 8000
+    supports_tools: true
+    enabled: true
+    tags: ["fast", "lightweight", "verified-working"]
+
+  - name: groq-gpt-oss-20b-k2
+    base_url: https://api.groq.com/openai/v1
+    key_env: GROQ_API_KEY_2
+    model: openai/gpt-oss-20b
+    priority: 2
+    daily_token_budget: 300000
+    first_token_timeout_ms: 8000
+    supports_tools: true
+    enabled: true
+    tags: ["fast", "lightweight"]
+
+  - name: groq-qwen3.6-27b
+    base_url: https://api.groq.com/openai/v1
+    key_env: GROQ_API_KEY
+    model: qwen/qwen3.6-27b
+    priority: 2
+    daily_token_budget: 300000
+    first_token_timeout_ms: 8000
+    supports_tools: true
+    enabled: true
+    tags: ["coding", "multilingual", "fast", "verified-working"]
+
+  - name: groq-qwen3.6-27b-k2
+    base_url: https://api.groq.com/openai/v1
+    key_env: GROQ_API_KEY_2
+    model: qwen/qwen3.6-27b
+    priority: 2
+    daily_token_budget: 300000
+    first_token_timeout_ms: 8000
+    supports_tools: true
+    enabled: true
+    tags: ["coding", "multilingual", "fast"]
+
+  # ===== OPENCODE ZEN — PRUNED (2026-09-22) =====
+  # VERIFIED (2026-09-19 probe): Zen free-tier models are server-gated — every
+  # /chat/completions call from outside the OpenCode client returns 403
+  # FreeTierError ("free tier can only be used from within OpenCode"). They can
+  # NEVER answer in Jarvis; each turn routed here burned ~1.2s then hop-failed.
+  # Removed 9 dead entries: zen-nemotron-ultra, zen-deepseek-flash,
+  # zen-nemo-lightning, zen-mimo, zen-big-pickle, zen-laguna (retired
+  # server-side, 401 ModelError), zen-muse-spark + zen-muse-spark-1.3
+  # (responses-only, every /chat call 500s), zen-ling-flash. The same Nemotron
+  # models are served working via NVIDIA NIM below (priorities 5-7).
+  # Re-add only if Zen lifts the client gate.
+
+  # ===== XKIRO GATEWAY — FREE TIER (added 2026-09-19, all probed live) =====
+  # 37 free catalog models probed via /chat/completions (plain + tools payload).
+  # 35 answer correctly; minimax-m2.5:free + m2.5-highspeed:free return 200 with
+  # EMPTY content and are intentionally NOT listed. m2.7/m2.1-highspeed showed one
+  # empty reply each — kept at the back of the tier (priority 12).
+  # Timeouts set from measured full-reply times (streaming TTFT is faster).
+  # Daily budgets conservative: Xkiro free allowance is a sliding 24h window.
+  # --- priority 10: flagship + fastest ---
+  - name: xkiro-qwen38-max
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY
+    model: qwen/qwen3.8-max:free
+    priority: 0
+    daily_token_budget: 200000
+    first_token_timeout_ms: 12000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "reasoning", "coding", "xkiro", "verified-working"]
+
+  - name: xkiro-qwen-coder-plus
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY_2
+    model: qwen/qwen3-coder-plus:free
+    priority: 1
+    daily_token_budget: 200000
+    first_token_timeout_ms: 12000
+    supports_tools: true
+    enabled: true
+    tags: ["coding", "xkiro", "verified-working"]
+
+  - name: xkiro-mistral-small
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY
+    model: mistralai/mistral-small-2603
+    priority: 3
+    daily_token_budget: 200000
+    first_token_timeout_ms: 12000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "fast", "xkiro", "verified-working"]
+
+  - name: xkiro-minimax-m3
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY_2
+    model: minimax/minimax-m3:free
+    priority: 0
+    daily_token_budget: 200000
+    first_token_timeout_ms: 12000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "reasoning", "coding", "xkiro", "verified-working"]
+
+  - name: xkiro-codestral
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY
+    model: mistralai/codestral-2508
+    priority: 1
+    daily_token_budget: 200000
+    first_token_timeout_ms: 10000
+    supports_tools: true
+    enabled: true
+    tags: ["coding", "xkiro", "verified-working"]
+
+  - name: xkiro-devstral
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY_2
+    model: mistralai/devstral-medium
+    priority: 1
+    daily_token_budget: 200000
+    first_token_timeout_ms: 12000
+    supports_tools: true
+    enabled: true
+    tags: ["coding", "xkiro", "verified-working"]
+
+  - name: xkiro-mistral-large
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY
+    model: mistralai/mistral-large-2512
+    priority: 0
+    daily_token_budget: 200000
+    first_token_timeout_ms: 15000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "reasoning", "coding", "xkiro", "verified-working"]
+
+  # --- priority 11: qwen bench ---
+  - name: xkiro-qwen3-max
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY_2
+    model: qwen/qwen3-max:free
+    priority: 0
+    daily_token_budget: 200000
+    first_token_timeout_ms: 12000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "reasoning", "coding", "xkiro", "verified-working"]
+
+  - name: xkiro-qwen37-plus
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY
+    model: qwen/qwen3.7-plus:free
+    priority: 1
+    daily_token_budget: 200000
+    first_token_timeout_ms: 12000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "reasoning", "coding", "xkiro", "verified-working"]
+
+  - name: xkiro-qwen36-plus
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY_2
+    model: qwen/qwen3.6-plus:free
+    priority: 1
+    daily_token_budget: 200000
+    first_token_timeout_ms: 12000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "reasoning", "coding", "xkiro", "verified-working"]
+
+  - name: xkiro-qwen37-max
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY
+    model: qwen/qwen3.7-max:free
+    priority: 1
+    daily_token_budget: 200000
+    first_token_timeout_ms: 12000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "reasoning", "coding", "xkiro", "verified-working"]
+
+  - name: xkiro-qwen37-flash
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY_2
+    model: qwen/qwen3.7-flash:free
+    priority: 3
+    daily_token_budget: 200000
+    first_token_timeout_ms: 12000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "fast", "xkiro", "verified-working"]
+
+  - name: xkiro-qwen36-27b
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY
+    model: qwen/qwen3.6-27b:free
+    priority: 3
+    daily_token_budget: 200000
+    first_token_timeout_ms: 12000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "fast", "xkiro", "verified-working"]
+
+  - name: xkiro-qwen36-35b
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY_2
+    model: qwen/qwen3.6-35b-a3b:free
+    priority: 3
+    daily_token_budget: 200000
+    first_token_timeout_ms: 12000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "fast", "xkiro", "verified-working"]
+
+  - name: xkiro-qwen35-flash
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY
+    model: qwen/qwen3.5-flash:free
+    priority: 3
+    daily_token_budget: 200000
+    first_token_timeout_ms: 12000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "fast", "xkiro", "verified-working"]
+
+  - name: xkiro-qwen35-plus
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY_2
+    model: qwen/qwen3.5-plus:free
+    priority: 11
+    daily_token_budget: 200000
+    first_token_timeout_ms: 12000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "coding", "reasoning", "xkiro", "verified-working"]
+
+  - name: xkiro-qwen36-max-preview
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY
+    model: qwen/qwen3.6-max-preview:free
+    priority: 1
+    daily_token_budget: 200000
+    first_token_timeout_ms: 15000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "reasoning", "coding", "xkiro", "verified-working"]
+
+  - name: xkiro-qwen35-397b
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY_2
+    model: qwen/qwen3.5-397b-a17b:free
+    priority: 0
+    daily_token_budget: 200000
+    first_token_timeout_ms: 12000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "reasoning", "coding", "xkiro", "verified-working"]
+
+  - name: xkiro-qwen-plus-2025
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY
+    model: qwen/qwen-plus-2025-07-28:free
+    priority: 1
+    daily_token_budget: 200000
+    first_token_timeout_ms: 12000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "reasoning", "coding", "xkiro", "verified-working"]
+
+  - name: xkiro-qwen38-omni-flash
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY_2
+    model: qwen/qwen3.8-omni-flash:free
+    priority: 3
+    daily_token_budget: 200000
+    first_token_timeout_ms: 12000
+    supports_tools: true
+    enabled: true
+    tags: ["vision", "multimodal", "xkiro", "verified-working"]
+
+  - name: xkiro-qwen3-omni-flash
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY
+    model: qwen/qwen3-omni-flash:free
+    priority: 3
+    daily_token_budget: 200000
+    first_token_timeout_ms: 12000
+    supports_tools: true
+    enabled: true
+    tags: ["vision", "multimodal", "xkiro", "verified-working"]
+
+  - name: xkiro-qwen35-omni-plus
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY_2
+    model: qwen/qwen3.5-omni-plus:free
+    priority: 3
+    daily_token_budget: 200000
+    first_token_timeout_ms: 12000
+    supports_tools: true
+    enabled: true
+    tags: ["vision", "multimodal", "xkiro", "verified-working"]
+
+  - name: xkiro-qwen3-vl-plus
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY
+    model: qwen/qwen3-vl-plus:free
+    priority: 3
+    daily_token_budget: 200000
+    first_token_timeout_ms: 12000
+    supports_tools: true
+    enabled: true
+    tags: ["vision", "multimodal", "xkiro", "verified-working"]
+
+  - name: xkiro-qwen35-omni-flash
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY_2
+    model: qwen/qwen3.5-omni-flash:free
+    priority: 3
+    daily_token_budget: 200000
+    first_token_timeout_ms: 12000
+    supports_tools: true
+    enabled: true
+    tags: ["vision", "multimodal", "xkiro", "verified-working"]
+
+  # --- priority 12: small models, minimax, sensenova, slower mistral ---
+  - name: xkiro-ministral-3b
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY
+    model: mistralai/ministral-3b
+    priority: 3
+    daily_token_budget: 200000
+    first_token_timeout_ms: 8000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "fast", "xkiro", "verified-working"]
+
+  - name: xkiro-ministral-8b
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY_2
+    model: mistralai/ministral-8b
+    priority: 3
+    daily_token_budget: 200000
+    first_token_timeout_ms: 8000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "fast", "xkiro", "verified-working"]
+
+  - name: xkiro-ministral-14b
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY
+    model: mistralai/ministral-14b
+    priority: 3
+    daily_token_budget: 200000
+    first_token_timeout_ms: 8000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "fast", "xkiro", "verified-working"]
+
+  - name: xkiro-minimax-m2
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY_2
+    model: minimax/minimax-m2:free
+    priority: 3
+    daily_token_budget: 200000
+    first_token_timeout_ms: 12000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "fast", "xkiro", "verified-working"]
+
+  - name: xkiro-minimax-m27
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY
+    model: minimax/minimax-m2.7:free
+    priority: 3
+    daily_token_budget: 200000
+    first_token_timeout_ms: 12000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "fast", "xkiro", "verified-working"]
+
+  - name: xkiro-minimax-m21
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY_2
+    model: minimax/minimax-m2.1:free
+    priority: 3
+    daily_token_budget: 200000
+    first_token_timeout_ms: 12000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "fast", "xkiro", "verified-working"]
+
+  - name: xkiro-minimax-m27-highspeed
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY
+    model: minimax/minimax-m2.7-highspeed:free
+    priority: 3
+    daily_token_budget: 200000
+    first_token_timeout_ms: 15000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "fast", "xkiro", "verified-working"]
+
+  - name: xkiro-minimax-m21-highspeed
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY
+    model: minimax/minimax-m2.1-highspeed:free
+    priority: 3
+    daily_token_budget: 200000
+    first_token_timeout_ms: 15000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "fast", "xkiro", "verified-working"]
+
+  - name: xkiro-sensenova-68
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY
+    model: sensenova/sensenova-6.8-flash-lite
+    priority: 3
+    daily_token_budget: 200000
+    first_token_timeout_ms: 12000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "fast", "xkiro", "verified-working"]
+
+  - name: xkiro-sensenova-67
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY
+    model: sensenova/sensenova-6.7-flash-lite
+    priority: 3
+    daily_token_budget: 200000
+    first_token_timeout_ms: 20000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "fast", "xkiro", "verified-working"]
+
+  - name: xkiro-mistral-medium
+    base_url: https://api.xkiro.com/v1
+    key_env: XKIRO_API_KEY
+    model: mistralai/mistral-medium-3.5
+    priority: 1
+    daily_token_budget: 200000
+    first_token_timeout_ms: 20000
+    supports_tools: true
+    enabled: true
+    tags: ["general", "reasoning", "coding", "xkiro", "verified-working"]
+
+  # ===== GOOGLE AI STUDIO — VISION + LONG CONTEXT =====
+  # tools=false: Gemini OpenAI-compat rejects our function payloads (400 Function call).
+  # Used as no-tool fallback for vision/long-context; Groq/Nvidia keep tools.
+  - name: gemini-3.5-flash
+    base_url: https://generativelanguage.googleapis.com/v1beta/openai
+    key_env: GOOGLE_API_KEY
+    model: gemini-3.5-flash
+    priority: 20
+    daily_token_budget: 900000
+    first_token_timeout_ms: 15000
+    supports_tools: false
+    enabled: true
+    tags: ["vision", "long-context", "multimodal", "verified-working"]
+
+  - name: gemini-3.6-flash
+    base_url: https://generativelanguage.googleapis.com/v1beta/openai
+    key_env: GOOGLE_API_KEY
+    model: gemini-3.6-flash
+    priority: 21
+    daily_token_budget: 900000
+    first_token_timeout_ms: 15000
+    supports_tools: false
+    enabled: true
+    tags: ["vision", "long-context", "multimodal", "verified-working"]
+
+  # ===== NVIDIA NIM — DEEP REASONING BACKUP (NOT fast tier, probed 2026-09-19) =====
+  # Same Nemotron models as the gated Zen entries and they DO answer via
+  # NVIDIA — but this key is heavily queued server-side (17s/47s/75s to first
+  # token across 3 probes). Kept as last-resort backup only: promoting them
+  # would park every Groq-outage turn behind a minute+ wait. Do NOT move these
+  # below priority 30 without re-probing first-token latency.
+  - name: nim-nemo-super
+    base_url: https://integrate.api.nvidia.com/v1
+    key_env: NVIDIA_API_KEY
+    model: nvidia/nemotron-3-super-120b-a12b
+    priority: 30
+    daily_token_budget: 500000
+    first_token_timeout_ms: 25000
+    supports_tools: true
+    enabled: true
+    tags: ["reasoning", "coding", "backup", "verified-working"]
+
+  - name: nim-nemo-lightning
+    base_url: https://integrate.api.nvidia.com/v1
+    key_env: NVIDIA_API_KEY
+    model: nvidia/nemotron-3.5-lightning-30b-a3b
+    priority: 31
+    daily_token_budget: 500000
+    first_token_timeout_ms: 15000
+    supports_tools: true
+    enabled: true
+    tags: ["fast", "reasoning", "backup", "verified-working"]
+
+  - name: nim-nemotron-ultra
+    base_url: https://integrate.api.nvidia.com/v1
+    key_env: NVIDIA_API_KEY
+    model: nvidia/nemotron-3-ultra-550b-a55b
+    priority: 32
+    daily_token_budget: 500000
+    first_token_timeout_ms: 45000
+    supports_tools: true
+    enabled: true
+    tags: ["coding", "reasoning", "deep-thinking", "backup"]
+
+  # Currently unstable server-side — kept disabled until Google fixes it
+  - name: gemini-3.7-flash
+    base_url: https://generativelanguage.googleapis.com/v1beta/openai
+    key_env: GOOGLE_API_KEY
+    model: gemini-3.7-flash
+    priority: 22
+    daily_token_budget: 900000
+    first_token_timeout_ms: 20000
+    supports_tools: true
+    enabled: false
+    tags: ["vision", "long-context"]
+
+  # ===== OPTIONAL PAID BACKUP (off unless you opt in) =====
+  # $5 OpenRouter credit lasts months as a last-resort fallback: this entry
+  # only activates when OPENROUTER_API_KEY is set in .env (auto-skipped
+  # otherwise). Priority 60 = tried after every free tier. No-tools to
+  # keep it cheap and reliable.
+  - name: openrouter-backup
+    base_url: https://openrouter.ai/api/v1
+    key_env: OPENROUTER_API_KEY
+    model: openai/gpt-oss-20b
+    priority: 60
+    daily_token_budget: 2000000
+    first_token_timeout_ms: 20000
+    supports_tools: false
+    enabled: true
+    tags: ["fallback", "paid", "backup"]

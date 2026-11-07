@@ -1,0 +1,75 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jarvis-mark3"
+version = "3.0.0"
+description = "JARVIS MARK 3 — personal AI assistant (CLI, web dashboard, Telegram, WhatsApp, voice)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "JARVIS", email = "jarvis@example.com"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+# Runtime dependencies live in requirements.txt (the app runs from the repo
+# with a local .venv, not as an installed package — one source of truth
+# instead of two dependency lists that drift apart).
+dependencies = []
+
+# NOTE (P1 dead-weight unwire): todo_app/ is a standalone CLI living in this
+# repo — it is NOT part of JARVIS and is no longer packaged or script-wired.
+# Files stay on disk; nothing imports them (verified 2026-09-25).
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.2",
+    "mypy>=1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["core*", "api*", "skills*", "utils*", "voice*", "plugins*"]
+exclude = ["tests*", "scripts*", "archive*", "wa-bridge*", "node_modules*"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+exclude = [".venv", "node_modules", "wa-bridge", "archive", "data"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B", "C4", "SIM"]
+# E501 (line length) is handled by the formatter; the codebase predates strict linting.
+ignore = ["E501"]
+
+# E402: these entry points MUST run bootstrap code (venv guard, sys.path)
+# before imports — moving imports to the top would break boot. Documented,
+# not laziness.
+[tool.ruff.lint.per-file-ignores]
+"jarvis.py" = ["E402"]
+"api/main.py" = ["E402"]
+"scripts/eval_router.py" = ["E402"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+# The codebase is gradually typed; strict mode would drown real issues in noise.
+disallow_untyped_defs = false
+check_untyped_defs = true
+ignore_missing_imports = true

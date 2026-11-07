@@ -1,0 +1,50 @@
+System Defects and Updates
+- context window problem
+  [FIXED 2026-09-25: pre-flight budget + priority shedding, trim recovery,
+   summarizer fallback, usage meter in stats/HUD — 12 tests green]
+i asked a simple question but Jarvis is answering in heavy mode
+  [FIXED 2026-09-25: bg gate needs verb+hint with word boundaries;
+   per-question verbosity (short/normal/detailed) + learned default — tests green]
+voice is like" the full details is on the screen sir" should change that
+  [FIXED 2026-09-25: pointer pool rotates 3+3 variants, sir-aware
+   (no double-sir), prompt no longer doubles it, has_screen skip — tests green]
+Jarvis cannot asscess my account and account data
+  [DONE 2026-09-25 Gmail + Jarvis-side days: account-words trigger (money/
+   destructive guarded), draft-to-person, Gmail-native drafts (IMAP APPEND,
+   SMTP send + copy cleanup), mark_day/day_events tools + shortcuts, prompt
+   lines — 14 tests green, live IMAP verified (779 inbox).
+   DEFERRED (needs Google OAuth2: consent screen + token flow + new deps):
+   writing events INTO Google Calendar app; Drive files; contacts/photos.]
+Distiller- should improve this to my needs
+should change the cli like claude code or open code
+  [STAGE 1 DONE 2026-09-26: cli_render.py — Markdown rendering, red/green diff
+  view for tool chunks, thinking spinner with elapsed timer, buffered turn
+  (no more raw token spill; speech tags still hidden). 8 tests green.
+  STAGE 1b DONE 2026-09-27: boot frame restyled — banner with date + online
+  seal, one status line (brains/background/session), services table, commands
+  as a grouped table parsed from HELP (no drift).
+  BUGFIX 2026-09-27: every slash command raised TypeError (table calls
+  handler(orch, cmd), legacy handlers take 0-1 args) which escaped the REPL
+  loop into teardown — the "mesh stopping". Arity-tolerant dispatch +
+  loop guard + markup-free help print. Full suite 828 green, lint zero.
+  Stage 2 (permissions/plan mode) pending user review.]
+what if the coder answer and the normal text answer cam at the same time?
+  [FIXED 2026-09-26: single-delivery — same-turn coder/normal already mutually
+  exclusive; the real double was across turns (print + re-inject, review filed
+  twice, double register). _delivered_bg/_filed_bg sets: inline/printed results
+  file a short receipt next turn, unshown results inject once with a
+  present-first instruction, dashboard event + memory run once per job, review
+  travels inside task.result only, failures share the dedup. 6 tests green,
+  full suite 813 green, lint zero.]
+The answer for the question takes some time, then the answer is summarized that takes time then the summarized text go through edge tts and that takes time to speak
+  [FIXED 2026-09-26: single-shot <spoken> tag (distill round-trip deleted on
+  tag turns) + sentence-pipelined TTS (speak sentence 1 while 2 synthesizes)
+  + per-turn timing logs; tag hidden from screen via SpokenTagFilter; dynamic
+  instruction carries taste+budget; CLI /tts gets surface=voice. Full suite
+  798 green, lint zero.]
+->the files Jarvis is creating is in the mark3 folder itself, should make Jarvis more file organizing, and creations of different files in different folders
+  [FIXED 2026-09-26: core/workspace.py map (plans docs/plans, research
+  data/research, logs logs/, media D:/jarvis/media, scripts+misc workspace/);
+  placement hints in write_file descriptions, coder/researcher/writer prompts,
+  system prompt; guardrail refuses ..-escape + system dirs (D:/home stay open);
+  root litter moved (incl. first D:/jarvis file). 9 tests green.]

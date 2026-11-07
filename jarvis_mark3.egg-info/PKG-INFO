@@ -1,0 +1,147 @@
+Metadata-Version: 2.4
+Name: jarvis-mark3
+Version: 3.0.0
+Summary: JARVIS MARK 3 — personal AI assistant (CLI, web dashboard, Telegram, WhatsApp, voice)
+Author-email: JARVIS <jarvis@example.com>
+License: MIT
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23; extra == "dev"
+Requires-Dist: ruff>=0.2; extra == "dev"
+Requires-Dist: mypy>=1.0; extra == "dev"
+
+# JARVIS MARK 3
+
+Personal AI assistant + developer agent for Windows. Multi-provider LLM failover,
+tool-using chat CLI, Telegram remote, voice (Kokoro neural TTS), web HUD, scheduler,
+memory with weekly consolidation.
+
+## Quickstart
+
+```bat
+:: 1. Copy env and fill keys (see .env.example)
+copy .env.example .env
+
+:: 2. Always launch with the project venv (no relaunch-wrapper traceback)
+.\.venv\Scripts\python.exe jarvis.py
+:: .. or double-click jarvis-start.bat
+```
+
+Autostart on logon (30s delay): run `Register-JarvisAutostart.ps1` once in an
+elevated PowerShell.
+
+## Processes & ports
+
+| What | Where | Notes |
+|---|---|---|
+| CLI brain | `jarvis.py` | owns scheduler, Telegram polling, `:8082` mesh |
+| API + HUD + Telegram | child `uvicorn api.main:app` | `http://127.0.0.1:8080`, `/app`, `/dashboard`, `/api/health` |
+| Mesh | `127.0.0.1:8082` | CLI binds; API child dials (never binds) |
+| WA bridge | `node wa-bridge/server.js` | spawned + watchdogged by CLI on `:3101`; logs/wa_bridge.log; `JARVIS_NO_WA_BRIDGE=1` to run manually |
+
+One Telegram poller at a time enforced by `data/telegram_owner.lock`.
+One brain, one scheduler — the API child never schedules.
+
+## Daily commands
+
+```
+chat:              just type. /reset clears session, /new starts one
+/chain /health     provider chain, budgets, breakers
+/briefing          morning briefing now (weather, calendar, mail, tasks)
+/tasks             scheduled tasks      /remind via chat ("remind me at 9pm…")
+/memory /forget q  browse / delete memories   /consolidate  weekly hygiene now
+/triage [/triage sort]   Downloads report (dry-run) / actually sort
+/mail              Telegram-style: /mail, /mail from:x, /mail read <id>
+dev:  /init /review /test /pr <title> /standup
+rules: /rule list | add <name> | <when> | <do tool> [args] | on|off|del <id>
+   ex: /rule add deploy-guard | deploy | do notify {"message":"deploy mentioned"}
+   tasks AND rules can target run_workflow → chains compose from primitives
+   proactive.auto_act (default off): high-confidence notify suggestions execute
+voice: /tts on|off (Kokoro reads replies)   /voice (push-to-talk)   /doctor (self-check)
+/keys /stats /tools /backup /reload /help
+```
+
+Telegram bot: `/status /chat /screenshot /analyze /tasks /ask /index /remember /briefing /remind <mins> <msg> /mail /wa`.
+
+## Inboxes (mail + WhatsApp)
+
+- **Gmail** (IMAP, read-only + approval-gated SMTP send): `mail_unread/search/read`,
+  `mail_triage` tiers, `mail_draft` + `mail_send_draft`, `mail_check_new` every 5 min.
+  `MAIL_VIP=` teaches VIP senders. Telegram `/mail triage|draft|send`.
+- **WhatsApp** via `wa-bridge/` (Baileys, QR pairing, secondary number advised):
+  `/wa triage|chats|read|send|sendto|contact`, same triage/draft/approve contract,
+  `wa-watch` **on-demand only** (no auto-poll). NL: "send hi to aslam in whatsapp".
+  Contacts in `data/wa_contacts.json` (`/wa contact add Name number`).
+- Drafts never send without explicit approval (`/mail send d123`, `send it`,
+  `/wa send w123`). First watch runs baseline silently (no spam).
+
+## Auto jobs (CLI-owned, idempotent)
+
+| Job | When | Action |
+|---|---|---|
+| morning-briefing | daily 08:00 | `notify_briefing(morning)` → Telegram |
+| evening-review | daily 21:00 | `notify_briefing(evening)` |
+| inbox-triage | daily 19:00 | `inbox_report` (report only) |
+| memory-consolidation | Sun 20:00 | promote facts → preferences, list trivia (never deletes) |
+| mail-watch | every 5 min | `mail_check_new` (baseline-first, alerts on arrivals) |
+
+Booting past a slot delivers it as catch-up (deduped per day).
+
+## Providers (failover order)
+
+Groq ×3 keys → Zen free → Gemini vision → Nvidia → optional `openrouter-backup`
+(priority 60, auto-active only when `OPENROUTER_API_KEY` is set).
+Zen Muse-Spark entries are Responses-only, excluded from chat (`supports_chat: false`).
+`local-ollama` was evaluated and removed (no local GPU/CPU budget for it).
+
+Tool payloads are packed: ~24 core schemas + keyword domain packs (cap 40),
+`load_pack` escape hatch. `/chain` shows state + budget left.
+
+## Voice
+
+Chain: Kokoro `bf_emma` (local, pinned to all CPUs) → edge-tts → Gemini → SAPI.
+`JARVIS_KOKORO_VOICE` / `JARVIS_KOKORO_SPEED` / `JARVIS_MIC_INDEX` env overrides.
+
+## Layout
+
+```
+jarvis.py run_telegram_bot.py  entry points
+core/       orchestrator, router, providers, scheduler, memory, telegram, ...
+skills/     toolbox registrations (fs, browser, mail, dev_loop, triage, ...)
+api/        FastAPI :8080 + /ws     web/  HUD (single HUD; mark4dash/ archived)
+voice/      stt/tts/wake/mic        data/ SQLite DBs (git-ignored)
+tests/      pytest suite            scripts/ dev + eval_router.py + backup_drill.py
+archive/    retired files (ai-code-reviewer, mark4dash, old debug; reference only)
+```
+
+## Troubleshooting
+
+| Symptom | Cause → fix |
+|---|---|
+| `409 Conflict: terminated by other getUpdates` | two pollers → fixed by owner lock; `del data\telegram_owner.lock` if stale, restart |
+| `all brains unavailable` (429 wall) | free quotas out → `/chain` to confirm, wait for reset, optional OpenRouter key |
+| `400 MissingSessionID` / Muse `500` | Zen gateway flakiness → 24h auto-cooldown; Muse excluded by design |
+| Ctrl+C traceback | launch via `.venv\...\python.exe` or `jarvis-start.bat`, never system python |
+| `/review` prints git help | not a git repo → `git init && commit` first |
+| Mail `error: mail not configured` | `MAIL_*` in `.env` (Gmail: app password, IMAP on) |
+| Briefing says no calendar | set `CALENDAR_ICS_URL` (secret iCal URL) in `.env` |
+| TTS silent | look for `tts skipped:` line (usually output device) |
+
+## Tests & drills
+
+```bat
+.venv\Scripts\python.exe -m pytest tests/ -q --ignore=tests/test_voice.py --ignore=tests/test_voice2.py --ignore=tests/test_voice_distiller.py --ignore=tests/test_vision2.py
+.venv\Scripts\python.exe scripts/eval_router.py [--only groq]   :: live tiny probes (spends tokens)
+.venv\Scripts\python.exe scripts/backup_drill.py                :: backup + integrity verify
+.venv\Scripts\python.exe scripts/backup_drill.py --restore-boot :: + boot stores against restore
+.venv\Scripts\python.exe scripts\web_exercise.py               :: boot API + hit every web endpoint (43 checks)
+```

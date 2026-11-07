@@ -1,0 +1,43 @@
+# JARVIS MARK 3 — core tier (ROADMAP P2 req split).
+# Boot <10s: CLI brain, Telegram, scheduler, memory, API/HUD, PC control.
+# Install: .venv\Scripts\python.exe -m pip install -r requirements.core.txt
+# NOTE: numpy stays in core (not ml.txt). core/knowledge.py needs it at
+# import time for vector search math; splitting it would save ~15MB but risk
+# boot breakage for zero runtime gain. Heavy embedding/reasoning ML lives in
+# requirements.ml.txt and is imported lazily (function-level try/except).
+httpx>=0.27,<1
+PyYAML>=6.0
+python-dotenv>=1.0
+rich>=13.7
+numpy
+croniter
+fastapi
+uvicorn
+pydantic
+mss
+pillow
+pytesseract
+psutil
+pypdf
+watchdog
+playwright
+zeroconf
+cryptography
+openai
+python-docx
+openpyxl
+python-pptx
+pymupdf
+pyautogui
+pygetwindow
+pynput
+pystray
+pywin32
+prompt_toolkit
+flask
+flask-socketio
+pygls
+keyboard
+ddgs
+pycaw
+comtypes

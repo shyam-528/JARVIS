@@ -1,0 +1,8 @@
+# JARVIS MARK 3 — ML tier (ROADMAP P2 req split).
+# Vector embeddings (knowledge/RAG/memory) + behavior-model math. All imported
+# lazily: knowledge degrades to FTS-only (see embeddings flag in /api/health),
+# ml_proactive degrades to heuristics. Core boots and chats without these.
+# Install: .venv\Scripts\python.exe -m pip install -r requirements.ml.txt
+fastembed
+sentence-transformers
+scikit-learn

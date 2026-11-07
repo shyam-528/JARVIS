@@ -1,0 +1,52 @@
+# JARVIS MARK 3 — Windows-only CI (ROADMAP P1).
+#
+# Windows-native app (pycaw, comtypes, pywin32, tray): no ubuntu matrix —
+# half the suite would be mocks. Push + PR: lint gate, format gate,
+# smoke tests, boot smoke, full hardware-independent suite, coverage ratchet.
+#
+# Secrets needed: none (all provider keys optional; suite runs offline
+# except live-probe scripts, which CI never runs).
+
+name: jarvis-mark3
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Ruff check (zero tolerance)
+        run: python -m ruff check .
+
+      - name: Ruff format check
+        run: python -m ruff format --check .
+
+      - name: Pytest smoke (boot, supervisor, router)
+        run: python -m pytest tests/test_boot.py tests/test_supervisor.py tests/test_router.py -q -p no:cacheprovider
+
+      - name: Boot smoke (API imports + route table)
+        run: |
+          python -c "import api.main; print('api routes:', len(api.main.app.routes))"
+          python -c "from core.config import load_config; load_config(); print('config loads')"
+
+      - name: Full suite + coverage ratchet
+        run: python scripts/coverage_ratchet.py
