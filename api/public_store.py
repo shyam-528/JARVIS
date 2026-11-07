@@ -24,9 +24,11 @@ def token_hash(token: str) -> str:
 
 
 class WebStore:
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, database_url: str = ""):
         self.path = path
-        path.parent.mkdir(parents=True, exist_ok=True)
+        self.database_url = database_url
+        if not database_url:
+            path.parent.mkdir(parents=True, exist_ok=True)
         with self.connect() as db:
             db.executescript("""
                 PRAGMA journal_mode=WAL;
@@ -60,6 +62,12 @@ class WebStore:
 
     @contextmanager
     def connect(self):
+        if self.database_url:
+            from api.public_postgres import connect
+
+            with connect(self.database_url) as db:
+                yield db
+            return
         db = sqlite3.connect(self.path, timeout=10)
         db.row_factory = sqlite3.Row
         db.execute("PRAGMA foreign_keys=ON")

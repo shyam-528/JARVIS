@@ -260,6 +260,13 @@ async function boot() {
   }
   try {
     const health = await api('/api/health');
+    if (health.database_available === false) {
+      showAuth();
+      $('#signup-tab').hidden = true;
+      $('#auth-submit').disabled = true;
+      showError($('#auth-error'), health.setup_message || 'Database setup is required. Please contact the site administrator.');
+      return;
+    }
     $('#signup-tab').hidden = !health.signup_enabled;
     $('#configuration-notice').hidden = health.ai_configured;
     $('#ai-status').classList.toggle('unavailable', !health.ai_configured);

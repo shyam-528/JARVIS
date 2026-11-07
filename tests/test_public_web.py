@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import tempfile
 import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from urllib.parse import urlparse
 
 import httpx
 from fastapi import HTTPException
@@ -27,6 +29,7 @@ class PublicWebTests(unittest.TestCase):
             secure_cookies=False,
             provider_key="test-key",
             provider_model="test-model",
+            database_url=os.getenv("JARVIS_TEST_DATABASE_URL", ""),
         )
         self.calls = []
 
@@ -37,6 +40,14 @@ class PublicWebTests(unittest.TestCase):
         self.app = create_app(self.settings, reply)
         self.client = TestClient(self.app, base_url=self.settings.origin)
         self.client.__enter__()
+        if self.settings.database_url:
+            # Dedicated disposable CI database only. Never erase an arbitrary
+            # connection string accidentally inherited from a production shell.
+            self.assertEqual(urlparse(self.settings.database_url).path, "/jarvis_web_test")
+            with self.app.state.store.connect() as db:
+                db.execute(
+                    "TRUNCATE TABLE users, sessions, conversations, messages, limits CASCADE"
+                )
         self.addCleanup(self.temp.cleanup)
         self.addCleanup(lambda: self.client.__exit__(None, None, None))
         self.headers = {"Origin": self.settings.origin, "Content-Type": "application/json"}
@@ -328,6 +339,93 @@ class PublicWebTests(unittest.TestCase):
             asyncio.run(provider_reply(self.settings, []))
         self.assertEqual(result.exception.status_code, 503)
         self.assertNotIn("test-key", result.exception.detail)
+
+    def test_serverless_without_database_loads_setup_page_without_creating_sqlite(self):
+        settings = Settings(Path(self.temp.name) / "must-not-exist.db", serverless=True)
+        app = create_app(settings)
+        with TestClient(app, base_url=settings.origin) as client:
+            self.assertEqual(client.get("/").status_code, 200)
+            health = client.get("/api/health").json()
+            self.assertEqual(health["status"], "setup_required")
+            self.assertFalse(health["database_available"])
+            self.assertFalse(health["signup_enabled"])
+            self.assertEqual(client.get("/api/conversations").status_code, 503)
+        self.assertFalse(settings.db_path.exists())
+
+    def test_requests_work_without_asgi_lifespan(self):
+        settings = Settings(Path(self.temp.name) / "lazy.db", secure_cookies=False)
+        app = create_app(settings)
+
+        async def run():
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app), base_url=settings.origin
+            ) as client:
+                response = await client.post(
+                    "/api/auth/signup",
+                    headers=self.headers,
+                    json={
+                        "email": "cold-start@example.com",
+                        "name": "Cold start",
+                        "password": "a long test passphrase",
+                    },
+                )
+                self.assertEqual(response.status_code, 201)
+                self.assertEqual((await client.get("/api/auth/me")).status_code, 200)
+
+        asyncio.run(run())
+
+    def test_vercel_origins_are_exact_and_cross_origin_writes_rejected(self):
+        with patch.dict(
+            os.environ,
+            {
+                "VERCEL": "1",
+                "VERCEL_URL": "jarvis-build.example.vercel.app",
+                "VERCEL_PROJECT_PRODUCTION_URL": "jarvis.example.vercel.app",
+            },
+            clear=True,
+        ):
+            settings = Settings.from_env()
+        self.assertEqual(settings.origin, "https://jarvis.example.vercel.app")
+        self.assertTrue(settings.secure_cookies)
+        app = create_app(settings)
+        with TestClient(app, base_url=settings.origin) as client:
+            self.assertEqual(client.get("/").status_code, 200)
+            self.assertEqual(
+                client.get("/", headers={"Host": "jarvis-build.example.vercel.app"}).status_code,
+                200,
+            )
+            self.assertEqual(
+                client.get("/", headers={"Host": "attacker.vercel.app"}).status_code, 400
+            )
+            response = client.post(
+                "/api/auth/logout", json={}, headers={"Origin": settings.deployment_origin}
+            )
+            self.assertEqual(response.status_code, 403)
+
+    def test_storage_failure_does_not_crash_homepage_or_leak_connection_details(self):
+        settings = Settings(Path(self.temp.name) / "unavailable.db")
+        app = create_app(settings)
+        import sqlite3
+
+        with (
+            patch(
+                "api.public.WebStore", side_effect=sqlite3.OperationalError("password=do-not-leak")
+            ),
+            TestClient(app, base_url=settings.origin) as client,
+        ):
+            self.assertEqual(client.get("/").status_code, 200)
+            response = client.get("/api/conversations")
+            self.assertEqual(response.status_code, 503)
+            self.assertNotIn("do-not-leak", response.text)
+
+    def test_shared_quota_is_atomic_across_workers(self):
+        from concurrent.futures import ThreadPoolExecutor
+
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            results = list(
+                executor.map(lambda _: self.app.state.store.allow("shared-test", 3, 60), range(8))
+            )
+        self.assertEqual(sum(results), 3)
 
     def test_malformed_key_has_actionable_error_without_network_call(self):
         for key in ("gsk_nonascii_\u00d8", "key\nwith-newline", "key with spaces"):

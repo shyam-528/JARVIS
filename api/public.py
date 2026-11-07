@@ -10,7 +10,8 @@ import asyncio
 import os
 import re
 import sqlite3
-from contextlib import asynccontextmanager
+import threading
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
@@ -43,18 +44,32 @@ class Settings:
     provider_url: str = "https://api.openai.com/v1"
     provider_key: str = ""
     provider_model: str = ""
+    database_url: str = ""
+    serverless: bool = False
+    deployment_origin: str = ""
 
     @classmethod
     def from_env(cls):
+        vercel = os.getenv("VERCEL") == "1"
+        deployed_host = os.getenv("VERCEL_URL", "")
+        production_host = os.getenv("VERCEL_PROJECT_PRODUCTION_URL", deployed_host)
+        default_origin = (
+            f"https://{production_host}" if vercel and production_host else "http://localhost:8090"
+        )
         return cls(
             db_path=Path(os.getenv("JARVIS_WEB_DB", str(ROOT / "data" / "public_web.db"))),
-            origin=os.getenv("JARVIS_WEB_ORIGIN", "http://localhost:8090").rstrip("/"),
+            origin=os.getenv("JARVIS_WEB_ORIGIN", default_origin).rstrip("/"),
             secure_cookies=os.getenv("JARVIS_WEB_SECURE_COOKIES", "1") != "0",
             signup_enabled=os.getenv("JARVIS_WEB_SIGNUP", "1") != "0",
             daily_limit=max(1, int(os.getenv("JARVIS_WEB_DAILY_LIMIT", "100"))),
             provider_url=os.getenv("JARVIS_WEB_PROVIDER_URL", "https://api.openai.com/v1"),
             provider_key=os.getenv("JARVIS_WEB_PROVIDER_KEY", ""),
             provider_model=os.getenv("JARVIS_WEB_MODEL", ""),
+            database_url=os.getenv("JARVIS_WEB_DATABASE_URL")
+            or os.getenv("POSTGRES_URL")
+            or os.getenv("DATABASE_URL", ""),
+            serverless=vercel,
+            deployment_origin=f"https://{deployed_host}" if vercel and deployed_host else "",
         )
 
 
@@ -189,23 +204,61 @@ def create_app(settings: Settings | None = None, responder=None) -> FastAPI:
     if urlparse(settings.provider_url).scheme != "https":
         raise ValueError("The AI provider URL must use HTTPS")
 
+    allowed_origins = {settings.origin}
+    if settings.deployment_origin:
+        allowed_origins.add(settings.deployment_origin)
+    allowed_hosts = {urlparse(value).netloc for value in allowed_origins}
+    store_lock = threading.Lock()
+
+    def initialize_store(app):
+        with store_lock:
+            if app.state.store is not None:
+                return app.state.store
+            if settings.serverless and not settings.database_url:
+                raise HTTPException(
+                    503,
+                    "Database setup is required. The administrator must connect a PostgreSQL database.",
+                )
+            if settings.database_url and urlparse(settings.database_url).scheme not in (
+                "postgres",
+                "postgresql",
+            ):
+                raise HTTPException(
+                    503,
+                    "The server database configuration is invalid. Please contact the administrator.",
+                )
+            try:
+                app.state.store = WebStore(settings.db_path, database_url=settings.database_url)
+            except (OSError, sqlite3.Error, ImportError):
+                raise HTTPException(
+                    503,
+                    "The server could not connect to its database. Please contact the administrator.",
+                ) from None
+            return app.state.store
+
     @asynccontextmanager
     async def lifespan(app):
-        app.state.store = WebStore(settings.db_path)
+        # A missing database must not prevent the page or diagnostic endpoint
+        # from loading. Vercel may also invoke ASGI without lifespan startup.
+        with suppress(HTTPException):
+            await asyncio.to_thread(initialize_store, app)
         yield
 
     app = FastAPI(
         title="JARVIS Web", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None
     )
     app.state.settings = settings
+    app.state.store = None
     app.state.responder = responder or provider_reply
 
     @app.middleware("http")
     async def guard(request: Request, call_next):
-        if request.headers.get("host") != origin.netloc:
+        host = request.headers.get("host")
+        if host not in allowed_hosts:
             return JSONResponse({"detail": "Invalid host"}, status_code=400)
         if request.method not in ("GET", "HEAD", "OPTIONS"):
-            if request.headers.get("origin") != settings.origin:
+            request_origin = request.headers.get("origin")
+            if request_origin not in allowed_origins or urlparse(request_origin).netloc != host:
                 return JSONResponse({"detail": "Request origin rejected"}, status_code=403)
             if request.headers.get("content-type", "").split(";")[0] != "application/json":
                 return JSONResponse({"detail": "Use application/json"}, status_code=415)
@@ -232,7 +285,7 @@ def create_app(settings: Settings | None = None, responder=None) -> FastAPI:
         return response
 
     def store(request: Request) -> WebStore:
-        return request.app.state.store
+        return initialize_store(request.app)
 
     store_dependency = Depends(store)
 
@@ -265,12 +318,29 @@ def create_app(settings: Settings | None = None, responder=None) -> FastAPI:
     async def missing(request, exc):
         return JSONResponse({"detail": "Conversation not found"}, status_code=404)
 
+    @app.exception_handler(sqlite3.OperationalError)
+    async def database_unavailable(request, exc):
+        return JSONResponse(
+            {"detail": "The database is temporarily unavailable. Please try again shortly."},
+            status_code=503,
+        )
+
     @app.get("/api/health")
     def health():
+        database_available = True
+        setup_message = ""
+        try:
+            with initialize_store(app).connect() as db:
+                db.execute("SELECT 1")
+        except (HTTPException, sqlite3.Error):
+            database_available = False
+            setup_message = "Database setup is incomplete or the database is unavailable. Please contact the site administrator."
         return {
-            "status": "ok",
+            "status": "ok" if database_available else "setup_required",
+            "database_available": database_available,
+            "setup_message": setup_message,
             "ai_configured": bool(settings.provider_key and settings.provider_model),
-            "signup_enabled": settings.signup_enabled,
+            "signup_enabled": settings.signup_enabled and database_available,
         }
 
     @app.post("/api/auth/signup", status_code=201)

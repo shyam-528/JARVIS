@@ -42,7 +42,33 @@ list of supported environment variables, not as live credentials.
   is not end-to-end encryption: the hosting administrator and AI provider process
   this data. Do not promise otherwise in a privacy policy.
 
-## Deployment
+## Vercel deployment
+
+Import this repository with its root directory unchanged. `vercel.json` selects
+FastAPI and `pyproject.toml` points to `api.public:app` with only the public web
+dependencies. `.vercelignore` excludes desktop dependencies and private local data.
+
+In Vercel project Settings > Environment Variables, configure:
+
+- `JARVIS_WEB_ORIGIN`: `https://jarvis-beta-woad.vercel.app` (or your exact domain).
+- `JARVIS_WEB_SECURE_COOKIES`: `1`.
+- `JARVIS_WEB_DATABASE_URL`: a hosted PostgreSQL connection string, preferably
+  the provider's pooled URL with TLS enabled. `POSTGRES_URL` and `DATABASE_URL`
+  are also accepted. Connect a database through Vercel Storage or your provider.
+- `JARVIS_WEB_PROVIDER_URL`, `JARVIS_WEB_PROVIDER_KEY`, and `JARVIS_WEB_MODEL`:
+  your AI provider's HTTPS API base URL, private key, and supported model ID.
+
+Redeploy after changing environment variables. The database tables are created
+automatically; existing local SQLite accounts are not migrated. Keep database
+credentials and AI keys in Vercel environment variables, never in Git.
+
+Vercel requires PostgreSQL for accounts and messages: a function's local disk is
+not persistent shared storage. Without it, the page loads with a database setup
+message and signup is disabled. `/api/health` reports `database_available` and
+`ai_configured` without revealing credentials. A successful page load alone
+does not mean database or AI setup is complete.
+
+## Deployment on a persistent server
 
 Deploy **`api.public:app`**, never `api.main:app`, as the internet-facing service.
 Install only `requirements.web.txt` on a clean Linux or Windows host. Do not copy
@@ -74,9 +100,10 @@ worker crashes. Messages are stored as complete user/assistant pairs only.
 Recent whole turns are sent within a character budget; older messages stay in
 history but may be omitted from AI context. Replies are capped at 2,048 tokens.
 
-SQLite suits an initial single-host deployment. For multiple application hosts,
-migrate storage and atomic rate limits to shared services such as PostgreSQL
-and Redis. Do not put SQLite on an unreliable network filesystem.
+SQLite suits an initial single-host deployment. Multiple application hosts can
+use `JARVIS_WEB_DATABASE_URL` for shared PostgreSQL storage. Short write transactions
+are serialized with an advisory lock to preserve quotas and conversation leases.
+Do not put SQLite on an unreliable network filesystem.
 
 ## Verification
 
@@ -89,7 +116,9 @@ node --check web/public/app.js
 
 Tests cover account isolation, session hashing/revocation/expiry, origin checks,
 request size and validation, quotas, overlapping sends, deletion, missing-provider
-behavior, upstream error redaction, and the absence of desktop API routes.
+behavior, upstream error redaction, serverless startup, and the absence of desktop
+API routes. CI also runs the suite against PostgreSQL using a disposable database
+named `jarvis_web_test`; never point `JARVIS_TEST_DATABASE_URL` at production.
 
 ## Remaining work before a broad public launch
 
