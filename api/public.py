@@ -66,6 +66,7 @@ class Settings:
             provider_key=os.getenv("JARVIS_WEB_PROVIDER_KEY", ""),
             provider_model=os.getenv("JARVIS_WEB_MODEL", ""),
             database_url=os.getenv("JARVIS_WEB_DATABASE_URL")
+            or os.getenv("JARVIS_WEB_DATABASE_DATABASE_URL")
             or os.getenv("POSTGRES_URL")
             or os.getenv("DATABASE_URL", ""),
             serverless=vercel,

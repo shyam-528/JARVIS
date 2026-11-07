@@ -55,6 +55,8 @@ In Vercel project Settings > Environment Variables, configure:
 - `JARVIS_WEB_DATABASE_URL`: a hosted PostgreSQL connection string, preferably
   the provider's pooled URL with TLS enabled. `POSTGRES_URL` and `DATABASE_URL`
   are also accepted. Connect a database through Vercel Storage or your provider.
+  A Neon integration using the custom prefix `JARVIS_WEB_DATABASE` generates
+  `JARVIS_WEB_DATABASE_DATABASE_URL`, which the app also accepts.
 - `JARVIS_WEB_PROVIDER_URL`, `JARVIS_WEB_PROVIDER_KEY`, and `JARVIS_WEB_MODEL`:
   your AI provider's HTTPS API base URL, private key, and supported model ID.
 
