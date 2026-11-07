@@ -1,4 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "fastapi"
+  "framework": "fastapi",
+  "functions": {
+    "api/public.py": {
+      "includeFiles": "web/public/**"
+    }
+  }
 }
