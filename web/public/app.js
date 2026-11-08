@@ -115,6 +115,16 @@ function newChat() {
   showError($('#chat-error')); resizeComposer(); renderConversations(); setSidebar(false);
 }
 
+function plainAssistantText(content) {
+  // Preserve code verbatim; remove paired Markdown emphasis in prose only.
+  return content.split(/(```[\s\S]*?```|`[^`\n]+`)/g).map((part, index) => {
+    if (index % 2) return part;
+    return part
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/(^|[\s(])\*([^*\n]+)\*(?=$|[\s.,!?;:)])/gm, '$1$2');
+  }).join('');
+}
+
 function addMessage(role, content, pending = false) {
   const node = document.createElement('article'); node.className = `message ${role}${pending ? ' pending' : ''}`;
   const meta = document.createElement('div'); meta.className = 'message-meta';
@@ -124,7 +134,7 @@ function addMessage(role, content, pending = false) {
   } else meta.textContent = 'YOU';
   const body = document.createElement('div'); body.className = `message-body${pending ? ' pending-dot' : ''}`;
   // Deliberately render model/user content as text, never executable HTML.
-  body.textContent = content;
+  body.textContent = role === 'assistant' ? plainAssistantText(content) : content;
   node.append(meta, body); $('#messages').append(node);
   return node;
 }
