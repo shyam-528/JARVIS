@@ -57,8 +57,11 @@ def connect(database_url):
             database_url,
             connect_timeout=8,
             row_factory=row_factory,
-            options="-c statement_timeout=10000 -c lock_timeout=5000",
         ) as db:
+            # Pooled Neon connections reject these as startup parameters.
+            # Transaction-local settings work with PgBouncer and reset on commit.
+            db.execute("SET LOCAL statement_timeout = '10s'")
+            db.execute("SET LOCAL lock_timeout = '5s'")
             yield Connection(db)
     except psycopg.IntegrityError:
         # Keep the existing store/API duplicate-account contract.
